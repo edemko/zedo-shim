@@ -1,0 +1,112 @@
+#!/bin/bash
+set -e
+
+# I'm going to try to use as little smarts as possible to coordinate these scripts.
+# So instead of trying to detect what is source and target, just use environment variables:
+  # if ZEDO_{SRC,BUILD,SCRIPT} are not set, set them to defaults
+  # but, if ZEDO_DIRS is a colon-delimited triple of src:build:script
+  # then set the ZEDO_{SRC,BUILD,SCRIPT} appropriately
+  # but!, if there's a .zedo directory a parent of PWD on the same filesystem
+  # then try to load them from .zedo/config
+  # (note that .zedo/config _should_ be checked-in, but .zedo/config-local _should not_ be
+# As a matter of fact, I don't even need the ZEDO_ prefix except for ZEDO_DIRS
+
+die() {
+  echo >&2 "$1"
+  exit 1
+}
+while [ $# -ne 0 ]; do
+  case "$1" in
+    -h|--help)
+      action=help
+      break
+    ;;
+    -V|--version)
+      echo '0.0.0-a'
+      exit
+    ;;
+
+    -j*|--threads*)
+      case "${1}" in
+        -j|--threads)
+          if [ $# -lt 2 ]; then die "missing argument to $1"; fi
+          threads="$2"
+          shift
+          shift
+        ;;
+        -j*)
+          threads="${1#-j}"
+          threads="${threads#=}"
+          shift
+        ;;
+        --threads=*)
+          threads="${1#--threads=}"
+          shift
+        ;;
+      esac
+      if echo "$threads" | grep -qvG '^[0-9]\+$'; then die "invalid number of threads: '$threads'"; fi
+      echo >&2 "threads = ${threads}"
+    ;;
+    --)
+      shift
+      action=build
+      break
+    ;;
+
+    always|if-change|if-create)
+      shift
+      SCRIPT="${1}"
+      shift
+      action=build
+      break
+    ;;
+    help)
+      action=help
+      break
+    ;;
+    *)
+      SCRIPT="$1"
+      shift
+      action=build
+      break
+    ;;
+  esac
+done
+
+case "$action" in
+
+  build)
+    # FIXME this shouldn't just call the given script, but instead:
+    #   for each argument
+    #   find its associated script (if any)
+    #   invoke that script, with a standard set of arguments
+    # also, it'd be nice to have a --meta flag so that zedo searches for a script to rebuild a _script_
+    "$SCRIPT" "$@"
+    exit $?
+    # TODO actually, unset -e, and merely grab the exit code here
+    # then, look for any cleanup scripts that got "registered" (put in a specific directory for this particular process)
+    # execute them (again, ignoring errors)
+    # finally exit with the delegated-scripts error code
+  ;;
+
+  help)
+    echo "fake-zedo: just run some scripts, but do it while pretending to be a redo-like system"
+    echo "Usage: zedo [COMMAND] ARGS..."
+    echo ""
+    echo "zedo is a simple but powerful incremental build system (and interface)"
+    echo "It's not widespread, but I want to use it in my projects, so this is a shim which doesn't bother trying to be smart about running build scripts."
+    echo "For more information, see: TODO"
+    echo ""
+    echo "COMMANDS"
+    echo "  zedo <no command> SCRIPT ARGS...          as the always command"
+    echo "  zedo always SCRIPT ARGS...                execute SCRIPT with ARGS"
+    echo "  zedo if-{change,create} SCRIPT ARGS...    as the always command"
+    echo "                                              a true zedo would conditionally run the script"
+    echo "  zedo help                                 print this message and exit"
+    echo ""
+    echo "OPTIONS"
+    echo "  -h,--help       as the help command above"
+    echo "  -V,--version    print the version string (as a plain semver) and exit"
+  ;;
+
+esac
