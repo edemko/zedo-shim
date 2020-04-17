@@ -1,0 +1,28 @@
+===
+zedo doing nothing
+===
+target is (build): foo
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/foo.do
+target is (build): foo
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/foo.do
+target is (build): foo
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/foo.do
+target is (build): foo
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/foo.do
+target is (src): foo
+target is (build): :foo
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/:foo.do
+target is (build): src:foo
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/src:foo.do
+target is (src): src:foo
+===
+target is (build): foo/bar/baz.a..nope.b
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/foo/bar/baz.a..nope.b.do
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/foo/bar/default.a..nope.b.do
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/foo/bar/default.b.do
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/foo/default.a..nope.b.do
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/foo/default.b.do
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/default.a..nope.b.do
+    could be: /home/edemko/projects/zedo-shim/test/cases/001/project/default.b.do
+===
+zedo doing nothing

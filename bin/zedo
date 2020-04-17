@@ -1,20 +1,12 @@
 #!/bin/bash
 set -e
 
-# I'm going to try to use as little smarts as possible to coordinate these scripts.
-# So instead of trying to detect what is source and target, just use environment variables:
-  # if ZEDO_{SRC,BUILD,SCRIPT} are not set, set them to defaults
-  # but, if ZEDO_DIRS is a colon-delimited triple of src:build:script
-  # then set the ZEDO_{SRC,BUILD,SCRIPT} appropriately
-  # but!, if there's a .zedo directory a parent of PWD on the same filesystem
-  # then try to load them from .zedo/config
-  # (note that .zedo/config _should_ be checked-in, but .zedo/config-local _should not_ be
-# As a matter of fact, I don't even need the ZEDO_ prefix except for ZEDO_DIRS
-
 die() {
   echo >&2 "$1"
   exit 1
 }
+
+
 while [ $# -ne 0 ]; do
   case "$1" in
     -h|--help)
@@ -27,7 +19,7 @@ while [ $# -ne 0 ]; do
     ;;
 
     -j*|--threads*)
-      case "${1}" in
+      case "$1" in
         -j|--threads)
           if [ $# -lt 2 ]; then die "missing argument to $1"; fi
           threads="$2"
@@ -45,7 +37,21 @@ while [ $# -ne 0 ]; do
         ;;
       esac
       if echo "$threads" | grep -qvG '^[0-9]\+$'; then die "invalid number of threads: '$threads'"; fi
-      echo >&2 "threads = ${threads}"
+    ;;
+    --zedo-root*)
+      case "$1" in
+        --zedo-root)
+          if [ $# -lt 2 ]; then die "missing argument to $1"; fi
+          root="$2"
+          shift
+          shift
+        ;;
+        --zedo-root=*)
+          root="${1#--zedo-root=}"
+          shift
+        ;;
+        *) die "unknown argument $1" ;;
+      esac
     ;;
     --)
       shift
@@ -55,7 +61,7 @@ while [ $# -ne 0 ]; do
 
     always|if-change|if-create)
       shift
-      SCRIPT="${1}"
+      exe="$1"
       shift
       action=build
       break
@@ -65,28 +71,206 @@ while [ $# -ne 0 ]; do
       break
     ;;
     *)
-      SCRIPT="$1"
-      shift
       action=build
       break
     ;;
   esac
-done
+done # done parsing arguments
+
+
+if [ -z "$ZEDO__PARENT" ]; then
+
+  # unless `--zedo-root` was passed, search from pwd up until a `.zedo` dir is found
+  # this search refuses to cross filesystems
+  # the passed or discovered root was not valid (didn't have a `.zedo` dir), that's fatal
+  # if all is good, we `cd` there and inform all children through `ZEDO__ROOT`
+  if [ -n "$root" ]; then
+    root="$(realpath "$root")"
+  else
+    root="$PWD"
+    rootDev="$(stat -c '%D' "$root")"
+    while [ "$root" != '/' ]; do
+      if [ -d "$root/.zedo" ]; then break; fi
+      root="$(dirname "$root")"
+      if [ "$rootDev" != "$(stat -c '%D' "$root")" ]; then break; fi
+    done
+  fi
+  if ! [ -d "$root/.zedo" ]; then die "not a zedo project (or any parent directory)"; fi
+  export ZEDO__ROOT="$root"
+  cd "$ZEDO__ROOT"
+
+  # if dirs are set, use them
+  # otherwise try loading them from the config file
+    # (note that .zedo/config _should_ be checked into source control, but .zedo/config-local _should not_ be
+  # if all else fails, initialize some defaults
+  __loadConfig() {
+    local var val def
+    var="$1"
+    def="$2"
+    val="$(grep "^${var}=" "$ZEDO__ROOT/.zedo/config" 2>/dev/null \
+            | head -n1 \
+            | sed -e "s/^${var}=\(.*\)/\1/" \
+                  -e 's/^\s*\|\s*$//g')" # TODO don't strip leading spaces?
+    if [ -z "$val" ]; then val="$def"; fi
+    echo "$val"
+  }
+  if [ -z "$SRC" ]; then
+    SRC="$(__loadConfig SRC .)"
+    export SRC
+  fi
+  if [ -z "$BUILD" ]; then
+    BUILD="$(__loadConfig BUILD build)"
+    export BUILD
+  fi
+  if [ -z "$DO" ]; then
+    DO="$(__loadConfig DO 'do')"
+    export DO
+  fi
+
+  # TODO export any invocation-tree options
+
+# done initializing the root of the invocation tree
+else # if ZEDO__PARENT is set:
+  ZEDO__PARENT="$ZEDO_TARGET"
+  cd "$ZEDO__ROOT"
+fi
+
+
+# `__findScript_{init,next}` form a co-routine.
+# They communicate through variables which should not be used elsewhere:
+#   * TODO what do I actually need/use
+#   * `__request` (full path) and `__requestBase`
+#   * `__nextDefaultDir`
+#   * `__requestExt`, `__nextExt`
+# The protocol for use is:
+#   1. call `__findScript_init <user request>`
+#   2. any problem here causes the whole script to die
+#   3. `$targetType` is now set to `{build,src,meta}`
+#      and `$targetPath` to the requested path relative to zedo-root
+#      (since it's modifying globals, do not run in a subshell e.g. to capture output)
+#   4. the path to target relative to the directory for its type ($SRC, $BUILD, $DO)
+#   5. call `__findScript_next`
+#   6. it sets `scriptFile` and `targetNoExt`, `targetExt`
+#   7. but if the search is done, it returns with a non-zero exit code
+__findScript_init() {
+  local request="$1"
+  # prioritize which of {src,build,do} we should treat it as
+  local isSrc=0 isBuild=0 isMeta=0
+  case "$request" in
+    src:*) isSrc=1; ;;
+    build:*) isBuild=1 ;;
+    meta:*) isMeta=1 ;;
+    # TODO is it in $DO, but only if --meta is on
+    # TODO is it external, but only if --external is on
+  esac
+  case "$isMeta$isBuild$isSrc" in
+    1??) targetType=meta ;;
+    ?1?) targetType=build ;;
+    ??1) targetType=src ;;
+    *) targetType='' ;;
+  esac
+  request="${request#$targetType:}"
+  if [ -z "$targetType" ]; then targetType=build; fi
+  # find the target path relative to the correct directory
+  local relTo
+  case "$targetType" in
+    build) relTo="$BUILD" ;;
+    src) relTo="$SRC" ;;
+    meta) relTo="$DO" ;;
+  esac
+  if [ "${request:0:1}" = '/' ]; then
+    request="${request:1}"
+  fi
+  relTo="$(realpath -ms "$ZEDO__ROOT/$relTo")"
+  request="$(realpath -ms "/$request")"
+  targetPath="${request#"/"}"
+  # initialize state for __findScript_next
+  # FIXME what if the ext ends in a dot?
+  __request="$request"
+  __requestBase="$(basename "$__request")"
+  __nextDefaultDir="$(dirname "$request")"
+  __requestExt="$(__extractExt "$__requestBase")"
+  __nextExt="$__requestExt"
+}
+__findScript_next() {
+  # first-up is the non-default case
+  if [ -n "$__request" ]; then
+    scriptFile="$(realpath -ms "$ZEDO__ROOT/$SCRIPT/${__request}.do")"
+    targetNoExt="$(basename "$__request")"
+    targetExt=''
+    __request=''
+    return
+  # then, we try to use default with longest extension, but keep shortening
+  elif [ -n "$__nextExt" ]; then
+    scriptFile="$(realpath -ms "$ZEDO__ROOT/$SCRIPT/$__nextDefaultDir/default.${__nextExt}.do")"
+    targetNoExt="${__requestBase%$__nextExt}"
+    targetExt="$__nextExt"
+    __nextExt="$(__extractExt "$__nextExt")"
+  # if extension iteration failed, then try the enxt directory up, resetting extension
+  elif [ -n "$__requestExt" ] && [ "$__nextDefaultDir" != '/' ]; then
+    __nextDefaultDir="$(dirname "$__nextDefaultDir")"
+    __nextExt="$__requestExt"
+    __findScript_next
+    return $?
+  # but if even the directory traversal can't do it, just stop
+  else
+    scriptFile=''
+    targetNoExt=''
+    targetExt=''
+    return 1
+  fi
+}
+__extractExt() {
+  local ext="$1"
+  # if no dot, we must be at the last extension part
+  case "$ext" in *.*) ;; *) return ;; esac
+  while true; do
+    ext="${ext#?*.}"
+    if [ "${ext:0:1}" = '.' ]; then
+      while [ "${ext:0:1}" = '.' ]; do ext="${ext#.}"; done
+    else
+      break
+    fi
+  done
+  echo "$ext"
+}
+
+
+
+__zedoSource() {
+  echo >&2 "target is ($targetType): $targetPath"
+  # I don't like the `zedo find` approach I used earlier.
+  # instead, I think source files will be copied (or linked?) into the build tree (if they are different)
+  # yeah, hard-link, but also unset write bits
+  return
+}
+__zedoBuild() {
+  echo >&2 "target is ($targetType): $targetPath"
+  while __findScript_next; do
+    if [ -z "$scriptFile" ]; then break; fi
+    echo >&2 "    could be: $scriptFile"
+    # TODO actually invoke the script (if possible)
+        # TODO when running a do-script, unset -e, and merely grab the exit code
+        # then, look for any cleanup scripts that got "registered" (put in a specific directory for this particular process)
+        # execute them (again, ignoring errors)
+        # finally exit with the delegated-scripts error code
+
+  done
+}
 
 case "$action" in
 
   build)
-    # FIXME this shouldn't just call the given script, but instead:
-    #   for each argument
-    #   find its associated script (if any)
-    #   invoke that script, with a standard set of arguments
-    # also, it'd be nice to have a --meta flag so that zedo searches for a script to rebuild a _script_
-    "$SCRIPT" "$@"
-    exit $?
-    # TODO actually, unset -e, and merely grab the exit code here
-    # then, look for any cleanup scripts that got "registered" (put in a specific directory for this particular process)
-    # execute them (again, ignoring errors)
-    # finally exit with the delegated-scripts error code
+    # TODO parse opts/flags
+    while [ $# -ne 0 ]; do
+      __findScript_init "$1"
+      shift
+      case "$targetType" in
+        src) __zedoSource ;;
+        build) __zedoBuild ;;
+        meta) die "TODO rebuilding do-scripts unimplemented" ;;
+      esac
+    done
   ;;
 
   help)
@@ -107,6 +291,10 @@ case "$action" in
     echo "OPTIONS"
     echo "  -h,--help       as the help command above"
     echo "  -V,--version    print the version string (as a plain semver) and exit"
+  ;;
+  *)
+    # TODO what should actually happen here?
+    echo >&2 "zedo doing nothing"
   ;;
 
 esac
