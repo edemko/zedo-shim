@@ -59,6 +59,8 @@ while [ $# -ne 0 ]; do
       break
     ;;
 
+    # TODO phony, init, others?
+    # TODO `zedo trace` just prints out the steps of the search algorithm
     always|if-change|if-create)
       shift
       exe="$1"
@@ -87,6 +89,7 @@ if [ -z "$ZEDO__PARENT" ]; then
   if [ -n "$root" ]; then
     root="$(realpath "$root")"
   else
+    startedFrom="$PWD"
     root="$PWD"
     rootDev="$(stat -c '%D' "$root")"
     while [ "$root" != '/' ]; do
@@ -127,11 +130,14 @@ if [ -z "$ZEDO__PARENT" ]; then
     export DO
   fi
 
+  # FIXME this startedFrom variable gets set in the most bonkers way; de-cruft it ASAP
+  if [ -z "$startedFrom" ]; then startedFrom="$ZEDO__ROOT/$SRC"; fi
+
   # TODO export any invocation-tree options
 
 # done initializing the root of the invocation tree
 else # if ZEDO__PARENT is set:
-  ZEDO__PARENT="$ZEDO_TARGET"
+  ZEDO__PARENT="$ZEDO__TARGET"
   cd "$ZEDO__ROOT"
 fi
 
@@ -145,8 +151,8 @@ fi
 # The protocol for use is:
 #   1. call `__findScript_init <user request>`
 #   2. any problem here causes the whole script to die
-#   3. `$targetType` is now set to `{build,src,meta}`
-#      and `$targetPath` to the requested path relative to zedo-root
+#   3. `$targetType` is now set to `{build,src,meta,default}`
+#      and `$targetPath` to the requested path relative to the appropriate directory
 #      (since it's modifying globals, do not run in a subshell e.g. to capture output)
 #   4. the path to target relative to the directory for its type ($SRC, $BUILD, $DO)
 #   5. call `__findScript_next`
@@ -157,9 +163,10 @@ __findScript_init() {
   # prioritize which of {src,build,do} we should treat it as
   local isSrc=0 isBuild=0 isMeta=0
   case "$request" in
-    src:*) isSrc=1; ;;
-    build:*) isBuild=1 ;;
-    meta:*) isMeta=1 ;;
+    src:*) isSrc=1; request="${request#src:}" ;;
+    build:*) isBuild=1; request="${request#build:}" ;;
+    meta:*) isMeta=1; request="${request#meta:}" ;;
+    :*) request="${request#:}" ;;
     # TODO is it in $DO, but only if --meta is on
     # TODO is it external, but only if --external is on
   esac
@@ -167,22 +174,22 @@ __findScript_init() {
     1??) targetType=meta ;;
     ?1?) targetType=build ;;
     ??1) targetType=src ;;
-    *) targetType='' ;;
+    *) targetType=default ;;
   esac
-  request="${request#$targetType:}"
-  if [ -z "$targetType" ]; then targetType=build; fi
-  # find the target path relative to the correct directory
-  local relTo
-  case "$targetType" in
-    build) relTo="$BUILD" ;;
-    src) relTo="$SRC" ;;
-    meta) relTo="$DO" ;;
-  esac
-  if [ "${request:0:1}" = '/' ]; then
-    request="${request:1}"
+  # work out the request path
+  # echo >&2 "starting request search at '$request'"
+  if [ "${request:0:1}" != '/' ]; then
+    if [ -z "$ZEDO__PARENT" ]; then
+      request="$(realpath -ms --relative-base="$ZEDO__ROOT/$SRC" "$startedFrom/$request")"
+      request="${request#$ZEDO__ROOT/$SRC}"
+    else
+      request="$ZEDO__PARENT/$request"
+      # echo >&2 "from parent: '$request'"
+    fi
+  # else echo >&2 "from absolute: '$request'"
   fi
-  relTo="$(realpath -ms "$ZEDO__ROOT/$relTo")"
   request="$(realpath -ms "/$request")"
+  # echo >&2 "normalized: '$request'"
   targetPath="${request#"/"}"
   # initialize state for __findScript_next
   # FIXME what if the ext ends in a dot?
@@ -195,15 +202,15 @@ __findScript_init() {
 __findScript_next() {
   # first-up is the non-default case
   if [ -n "$__request" ]; then
-    scriptFile="$(realpath -ms "$ZEDO__ROOT/$SCRIPT/${__request}.do")"
+    scriptFile="$(realpath -ms "$ZEDO__ROOT/$DO/${__request}.do")"
     targetNoExt="$(basename "$__request")"
     targetExt=''
     __request=''
     return
   # then, we try to use default with longest extension, but keep shortening
   elif [ -n "$__nextExt" ]; then
-    scriptFile="$(realpath -ms "$ZEDO__ROOT/$SCRIPT/$__nextDefaultDir/default.${__nextExt}.do")"
-    targetNoExt="${__requestBase%$__nextExt}"
+    scriptFile="$(realpath -ms "$ZEDO__ROOT/$DO/$__nextDefaultDir/default.${__nextExt}.do")"
+    targetNoExt="${__requestBase%.$__nextExt}"
     targetExt="$__nextExt"
     __nextExt="$(__extractExt "$__nextExt")"
   # if extension iteration failed, then try the enxt directory up, resetting extension
@@ -238,24 +245,68 @@ __extractExt() {
 
 
 __zedoSource() {
-  echo >&2 "target is ($targetType): $targetPath"
-  # I don't like the `zedo find` approach I used earlier.
-  # instead, I think source files will be copied (or linked?) into the build tree (if they are different)
-  # yeah, hard-link, but also unset write bits
+  local from="$ZEDO__ROOT/$SRC/$targetPath"
+  local to="$ZEDO__ROOT/$BUILD/$targetPath"
+  if ! [ -e "$from" ]; then die "source file does not exist: '$from'"; fi
+  # if ! [ -f "$from" ]; then die "source is not a file: '$from'"; fi # TODO not sure about this one
+  if [ "$BUILD" != "$SRC" ]; then
+    [ -e "$to" ] && rm "$to"
+    mkdir -p "$(dirname "$to")"
+    ln "$from" "$to"
+    # TODO I wish I could write-protect just the link inside BUILD instead of the SRC copy as well
+  fi
   return
 }
 __zedoBuild() {
-  echo >&2 "target is ($targetType): $targetPath"
+  local trySource="$1"
+  # echo >&2 "target is ($targetType): $targetPath"
   while __findScript_next; do
-    if [ -z "$scriptFile" ]; then break; fi
-    echo >&2 "    could be: $scriptFile"
-    # TODO actually invoke the script (if possible)
-        # TODO when running a do-script, unset -e, and merely grab the exit code
-        # then, look for any cleanup scripts that got "registered" (put in a specific directory for this particular process)
-        # execute them (again, ignoring errors)
-        # finally exit with the delegated-scripts error code
-
+    # echo >&2 "    could be: $scriptFile"
+    if [ -f "$scriptFile" ]; then
+      # echo >&2 "    yep!"
+      local to="$ZEDO__ROOT/$BUILD/$targetPath"
+      local exeBit arg1 arg2 arg3 ec
+      # do-script is called with
+      #   $1: target directory relative to type-root
+      #   $2: basename of target (without extension for default scripts)
+      #   $3: (for default scripts) extension of target including leading dot
+      # so the original target is `/$1/$2$3` (default-script or otherwise)
+      # and replacing extension is like `/$1/$2.o`
+      # or remove leading `/$1` for a relative path14
+      # NOTE if you need the path to the output file, you can just use `/dev/fd/1`
+      arg1="$(dirname "$targetPath")"
+      arg2="$targetNoExt"
+      if [ -n "$targetExt" ]; then arg3=".$targetExt"; else arg3=''; fi
+      # all parameters set, we are go for execute
+      export ZEDO__TARGET="$targetPath"
+      mkdir -p "$(dirname "$to")"
+      rm -f "$to"
+      if [ -x "$scriptFile" ]; then exeBit=1; else chmod u+x "$scriptFile"; fi
+      local owd="$PWD"
+      cd "$(dirname "$to")"
+      set +e
+        # TODO redirect stderr
+        "$scriptFile" "$arg1" "$arg2" "$arg3" >"$to"
+        ec=$?
+      set -e
+      cd "$owd"
+      if [ -z "$exeBit" ]; then chmod u-x "$scriptFile"; fi
+      # TODO look for any cleanup scripts that got "registered"
+      # (put in a specific directory for this particular process)
+      # execute them (again, ignoring errors)
+      if [ $ec != 0 ]; then
+        echo >&2 "do-script failed: '$scriptFile'"
+        exit $ec
+      else
+        return 0
+      fi
+    fi
   done
+  if [ "$trySource" = trySource ]; then
+    __zedoSource
+  else
+    die "no do-script found for $targetPath"
+  fi
 }
 
 case "$action" in
@@ -268,6 +319,7 @@ case "$action" in
       case "$targetType" in
         src) __zedoSource ;;
         build) __zedoBuild ;;
+        default) __zedoBuild trySource ;;
         meta) die "TODO rebuilding do-scripts unimplemented" ;;
       esac
     done
@@ -282,15 +334,29 @@ case "$action" in
     echo "For more information, see: TODO"
     echo ""
     echo "COMMANDS"
-    echo "  zedo <no command> SCRIPT ARGS...          as the always command"
-    echo "  zedo always SCRIPT ARGS...                execute SCRIPT with ARGS"
-    echo "  zedo if-{change,create} SCRIPT ARGS...    as the always command"
-    echo "                                              a true zedo would conditionally run the script"
-    echo "  zedo help                                 print this message and exit"
+    echo "  zedo <no command> REQUESTS...          as the always command"
+    echo "  zedo always REQUESTS...                build the requested files (see BUILDING below)"
+    echo "  zedo if-{change,create} REQUESTS...    as the always command"
+    echo "                                           a true zedo would conditionally run the script"
+    echo "  zedo help                              print this message and exit"
     echo ""
     echo "OPTIONS"
     echo "  -h,--help       as the help command above"
     echo "  -V,--version    print the version string (as a plain semver) and exit"
+    echo ""
+    echo "BUILDING"
+    echo ""
+    echo "TODO what is the format of a request?"
+    echo "If the request starts in a colon, treat type as default (and consume the colon)."
+    echo "TODO where are the request paths relative to?"
+    echo ""
+    echo "Source files are hard-linked into the build directory if necessary."
+    echo "For built files, we search for a do-script and invoke it to create the target."
+    echo "Meta files are unimplemented TODO"
+    echo "If no type is specified, it is treated as a built file,"
+    echo "unless no script can be found, in which case it is treated as a source file."
+    echo ""
+    echo "TODO how do-scripts found?"
   ;;
   *)
     # TODO what should actually happen here?
