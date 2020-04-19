@@ -10,3 +10,12 @@ Gotta catch 'em all! --- mama.out => kiddo.out
   SRC: .
   BUILD: build
   ZEDO__ROOT: /home/edemko/projects/zedo-shim/test/cases/005/project
+====================================
+from      : 
+  | build : gramps.out
+from      : gramps.out
+  | build : mama.out
+from      : mama.out
+  | build : kiddo.out
+from      : kiddo.out
+  | source: 001

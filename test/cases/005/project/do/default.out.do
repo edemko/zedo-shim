@@ -13,6 +13,7 @@ case "$2" in
     ;;
     kiddo)
         echo -n "Gotta catch 'em all!"
+        zedo 001
     ;;
 esac
 

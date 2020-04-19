@@ -10,3 +10,6 @@ cd build
 cat gramps.out
 cat mama.out
 cat kiddo.out
+echo ====================================
+cd ../.zedo/log
+cat callstack.zedolog

@@ -104,6 +104,12 @@ if [ -z "$ZEDO__TARGET" ]; then
   export ZEDO__ROOT="$root"
   cd "$ZEDO__ROOT"
 
+  # TODO this should probly be called only at the top of the invocation tree
+  callStackFile="$ZEDO__ROOT/.zedo/log/callstack.zedolog"
+  mkdir -p "$(dirname "$callStackFile")"
+  truncate -s0 "$callStackFile"
+  export callStackFile
+
   # if dirs are set, use them
   # otherwise try loading them from the config file
     # (note that .zedo/config _should_ be checked into source control, but .zedo/config-local _should not_ be
@@ -142,6 +148,7 @@ else # if ZEDO__TARGET is set:
 fi
 # FIXME this startedFrom variable gets set in the most bonkers way; de-cruft it ASAP
 if [ -z "$startedFrom" ]; then startedFrom="$ZEDO__ROOT/$SRC"; fi
+
 
 
 # `__findScript_{init,next}` form a co-routine.
@@ -249,6 +256,8 @@ __extractExt() {
 __zedoSource() {
   local from="$ZEDO__ROOT/$SRC/$targetPath"
   local to="$ZEDO__ROOT/$BUILD/$targetPath"
+  echo >>"$callStackFile" "from      : $ZEDO__PARENT"
+  echo >>"$callStackFile" "  | source: $targetPath"
   if ! [ -e "$from" ]; then die "source file does not exist: '$from'"; fi
   # if ! [ -f "$from" ]; then die "source is not a file: '$from'"; fi # TODO not sure about this one
   if [ "$BUILD" != "$SRC" ]; then
@@ -267,6 +276,7 @@ __zedoBuild() {
     if [ -f "$scriptFile" ]; then
       # echo >&2 "    yep!"
       local to="$ZEDO__ROOT/$BUILD/$targetPath"
+      local logFile="$ZEDO__ROOT/.zedo/log/$targetPath.stderr"
       local exeBit arg1 arg2 arg3 ec
       # do-script is called with
       #   $1: target directory relative to type-root
@@ -281,14 +291,15 @@ __zedoBuild() {
       if [ -n "$targetExt" ]; then arg3=".$targetExt"; else arg3=''; fi
       # all parameters set, we are go for execute
       export ZEDO__TARGET="$targetPath"
-      mkdir -p "$(dirname "$to")"
-      rm -f "$to"
+      mkdir -p "$(dirname "$to")" "$(dirname "$logFile")"
+      truncate -s0 "$to"
       if [ -x "$scriptFile" ]; then exeBit=1; else chmod u+x "$scriptFile"; fi
       local owd="$PWD"
       cd "$(dirname "$to")"
+      echo >>"$callStackFile" "from      : $ZEDO__PARENT"
+      echo >>"$callStackFile" "  | build : $ZEDO__TARGET"
       set +e
-        # TODO redirect stderr
-        "$scriptFile" "$arg1" "$arg2" "$arg3" >"$to"
+        "$scriptFile" "$arg1" "$arg2" "$arg3" >"$to" 2>"$logFile"
         ec=$?
       set -e
       cd "$owd"
