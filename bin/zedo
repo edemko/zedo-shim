@@ -63,9 +63,12 @@ while [ $# -ne 0 ]; do
     # TODO `zedo trace` just prints out the steps of the search algorithm
     always|if-change|if-create)
       shift
-      exe="$1"
-      shift
       action=build
+      break
+    ;;
+    trace)
+      shift
+      action=trace
       break
     ;;
     help)
@@ -322,6 +325,21 @@ case "$action" in
         default) __zedoBuild trySource ;;
         meta) die "TODO rebuilding do-scripts unimplemented" ;;
       esac
+    done
+  ;;
+  trace)
+    while [ $# -ne 0 ]; do
+      echo "Request is: '$1'"
+      __findScript_init "$1"
+      shift
+      echo "  Target (type $targetType) is: '$targetPath'"
+      while __findScript_next; do
+        echo "  Do-script could be: '${scriptFile#$ZEDO__ROOT/}'"
+        if [ -n "$targetExt" ]; then
+          echo "    base '$targetNoExt', extension '$targetExt'"
+        fi
+      done
+      echo "  Source could be: '$SRC/$targetPath'"
     done
   ;;
 

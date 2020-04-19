@@ -1,0 +1,9 @@
+parent: 
+target: zedoVars
+pwd: /home/edemko/projects/zedo-shim/test/cases/001/project2/out
+SRC: src
+BUILD: out
+DO: script
+isa: .
+dva: zedoVars
+san: 

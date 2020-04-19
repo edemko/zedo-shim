@@ -1,0 +1,3 @@
+SRC=src
+DO=script
+BUILD=out

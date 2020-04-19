@@ -1,0 +1,12 @@
+subdir@@foo1@@.out
+subdir@@foo2@@.out
+subdir@@src:foo3@@.out
+subdir@@:foo4@@.out
+subdir@@foo5@@.out
+subdir@@foo6@@.out
+subdir@@.foo7@@.out
+subdir@@..foo8@@.out
+subdir@@foo.ne..in@@.out
+subdir@@foo 10@@.out
+.@@upone@@.out
+subdir/subsubdir@@downone@@.out

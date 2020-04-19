@@ -1,2 +1,5 @@
 *.src
 project/build
+project1/build/
+project2/dist/
+project2/out/
