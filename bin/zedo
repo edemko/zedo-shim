@@ -83,8 +83,7 @@ while [ $# -ne 0 ]; do
 done # done parsing arguments
 
 
-if [ -z "$ZEDO__PARENT" ]; then
-
+if [ -z "$ZEDO__TARGET" ]; then
   # unless `--zedo-root` was passed, search from pwd up until a `.zedo` dir is found
   # this search refuses to cross filesystems
   # the passed or discovered root was not valid (didn't have a `.zedo` dir), that's fatal
@@ -133,16 +132,16 @@ if [ -z "$ZEDO__PARENT" ]; then
     export DO
   fi
 
-  # FIXME this startedFrom variable gets set in the most bonkers way; de-cruft it ASAP
-  if [ -z "$startedFrom" ]; then startedFrom="$ZEDO__ROOT/$SRC"; fi
-
   # TODO export any invocation-tree options
 
 # done initializing the root of the invocation tree
-else # if ZEDO__PARENT is set:
+else # if ZEDO__TARGET is set:
   ZEDO__PARENT="$ZEDO__TARGET"
+  export ZEDO__PARENT
   cd "$ZEDO__ROOT"
 fi
+# FIXME this startedFrom variable gets set in the most bonkers way; de-cruft it ASAP
+if [ -z "$startedFrom" ]; then startedFrom="$ZEDO__ROOT/$SRC"; fi
 
 
 # `__findScript_{init,next}` form a co-routine.
@@ -186,7 +185,7 @@ __findScript_init() {
       request="$(realpath -ms --relative-base="$ZEDO__ROOT/$SRC" "$startedFrom/$request")"
       request="${request#$ZEDO__ROOT/$SRC}"
     else
-      request="$ZEDO__PARENT/$request"
+      request="$(dirname "$ZEDO__PARENT")/$request"
       # echo >&2 "from parent: '$request'"
     fi
   # else echo >&2 "from absolute: '$request'"
