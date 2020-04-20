@@ -1,6 +1,6 @@
 parent: 
 target: zedoVars
-pwd: /home/edemko/projects/zedo-shim/test/cases/001/project1/build
+pwd: test/cases/001/project1/build
 SRC: .
 BUILD: build
 DO: do

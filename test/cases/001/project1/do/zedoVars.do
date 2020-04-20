@@ -4,7 +4,7 @@ set -e
 echo "parent: $ZEDO__PARENT"
 echo "target: $ZEDO__TARGET"
 
-echo "pwd: $PWD"
+echo "pwd: $(realpath --relative-to "$(git rev-parse --show-toplevel)" "$PWD")"
 
 echo "SRC: $SRC"
 echo "BUILD: $BUILD"

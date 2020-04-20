@@ -21,4 +21,4 @@ echo " --- $ZEDO__PARENT => $ZEDO__TARGET"
 
 echo "  SRC: $SRC"
 echo "  BUILD: $BUILD"
-echo "  ZEDO__ROOT: $ZEDO__ROOT"
+echo "  ZEDO__ROOT: $(realpath --relative-to "$(git rev-parse --show-toplevel)" "$ZEDO__ROOT")"

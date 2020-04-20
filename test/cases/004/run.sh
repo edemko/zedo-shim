@@ -4,6 +4,7 @@ set -e
 # Excercises requests relative to user's current directory.
 # Also has more excercise of odd request paths and do-script arguments.
 
+rm -rf project/build
 cd project/subdir
 
 zedo \

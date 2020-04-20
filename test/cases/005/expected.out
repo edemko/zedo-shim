@@ -1,15 +1,15 @@
 Oak ---  => gramps.out
   SRC: .
   BUILD: build
-  ZEDO__ROOT: /home/edemko/projects/zedo-shim/test/cases/005/project
+  ZEDO__ROOT: test/cases/005/project
 Delia --- gramps.out => mama.out
   SRC: .
   BUILD: build
-  ZEDO__ROOT: /home/edemko/projects/zedo-shim/test/cases/005/project
+  ZEDO__ROOT: test/cases/005/project
 Gotta catch 'em all! --- mama.out => kiddo.out
   SRC: .
   BUILD: build
-  ZEDO__ROOT: /home/edemko/projects/zedo-shim/test/cases/005/project
+  ZEDO__ROOT: test/cases/005/project
 ====================================
 from      : 
   | build : gramps.out
