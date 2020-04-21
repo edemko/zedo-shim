@@ -118,6 +118,9 @@ if [ -z "$ZEDO__TARGET" ]; then
   cd "$ZEDO__ROOT"
 
   # set up internal data structures for the run
+  ZEDO__ROOT_ERR="$(realpath /dev/fd/2)"
+  export ZEDO__ROOT_ERR
+
   ZEDO__CALLSTACK="$ZEDO__ROOT/.zedo/log/callstack.zedolog"
   mkdir -p "$(dirname "$ZEDO__CALLSTACK")"
   truncate -s0 "$ZEDO__CALLSTACK"
@@ -165,9 +168,10 @@ fi
 # FIXME this startedFrom variable gets set in the most bonkers way; de-cruft it ASAP
 if [ -z "$startedFrom" ]; then
   startedFrom="$(realpath -ms "$ZEDO__ROOT/$SRC")"
-elif [ "$startedFrom" != "$(realpath -ms "${startedFrom#"$ZEDO__ROOT/$SRC"}")" ]; then
-  startedFrom="$(realpath -ms "$ZEDO__ROOT/$SRC")"
+elif [ "$startedFrom" = "$(realpath -ms "${startedFrom#"$ZEDO__ROOT/$SRC"}")" ]; then
+    startedFrom="$(realpath -ms "$ZEDO__ROOT/$SRC")"
 fi
+
 
 
 
@@ -317,13 +321,13 @@ __zedoBuild() {
       echo >>"$ZEDO__CALLSTACK" "from      : $ZEDO__PARENT"
       echo >>"$ZEDO__CALLSTACK" "  | build : $ZEDO__TARGET"
       set +e
-        "$scriptFile" "$arg1" "$arg2" "$arg3" >"$to" 2>"$logFile"
+        "$scriptFile" "$arg1" "$arg2" "$arg3" >"$to" 2>"$logFile"  3>"$ZEDO__ROOT_ERR"
         ec=$?
       set -e
       if [ -z "$exeBit" ]; then chmod u-x "$scriptFile"; fi
       if [ -f "$ZEDO__ROOT/.zedo/when-done/$ZEDO__TARGET" ]; then
         while IFS= read -r line; do
-          __zedoCleanup >"$logFile" 2>&1 "$line"
+          __zedoCleanup >>"$logFile" 2>&1 "$line"
         done <"$ZEDO__ROOT/.zedo/when-done/$ZEDO__TARGET"
       fi
       cd "$owd"
