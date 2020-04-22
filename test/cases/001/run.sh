@@ -11,6 +11,7 @@ set -e
 
 rm -rf project{1,2}/build
 
+
 echo '=== Testing defaults ==='
 zedo --zedo-root=project1 \
     build:zedoVars \
@@ -24,6 +25,7 @@ echo "ok"
 echo "=== Testing overwriting targets ==="
 cd project1
 zedo build:zedoVars
+
 diff expected/zedoVars build/zedoVars
 cd ..
 echo "ok"

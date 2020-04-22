@@ -111,14 +111,19 @@ if [ -z "$ZEDO__TARGET" ]; then
       if [ "$rootDev" != "$(stat -c '%D' "$root")" ]; then break; fi
     done
     root="$(realpath -ms "$root")"
-    startedFrom="$(realpath -ms "$PWD")"
   fi
   if ! [ -d "$root/.zedo" ]; then die "not a zedo project (or any parent directory)"; fi
   export ZEDO__ROOT="$root"
   cd "$ZEDO__ROOT"
 
   # set up internal data structures for the run
-  ZEDO__ROOT_ERR="$(realpath /dev/fd/2)"
+  if [ -w /dev/fd/3 ]; then
+    ZEDO__ROOT_ERR="$(realpath /dev/fd/3)"
+  # FIXME it seems janky things happen if /dev/fd/2 is redirected to a file, but I'm not sure why
+  # so, for testing purposes, I've allowed fd 3 to be used in place of a terminal (which somehow works‽)
+  else
+    ZEDO__ROOT_ERR="$(realpath /dev/fd/2)"
+  fi
   export ZEDO__ROOT_ERR
 
   ZEDO__CALLSTACK="$ZEDO__ROOT/.zedo/log/callstack.zedolog"
@@ -212,15 +217,15 @@ __findScript_init() {
   # echo >&2 "starting request search at '$request'"
   if [ "${request:0:1}" != '/' ]; then
     if [ -z "$ZEDO__PARENT" ]; then
-      request="$(realpath -ms --relative-base="$ZEDO__ROOT/$SRC" "$startedFrom/$request")"
-      request="${request#$ZEDO__ROOT/$SRC}"
+      request="/$request"
+      # echo >&2 "from top: '$request'"
     else
-      request="$(dirname "$ZEDO__PARENT")/$request"
+      request="/$(dirname "$ZEDO__PARENT")/$request"
       # echo >&2 "from parent: '$request'"
     fi
   # else echo >&2 "from absolute: '$request'"
   fi
-  request="$(realpath -ms "/$request")"
+  request="$(realpath -ms "$request")"
   # echo >&2 "normalized: '$request'"
   targetPath="${request#"/"}"
   # initialize state for __findScript_next
@@ -321,7 +326,7 @@ __zedoBuild() {
       echo >>"$ZEDO__CALLSTACK" "from      : $ZEDO__PARENT"
       echo >>"$ZEDO__CALLSTACK" "  | build : $ZEDO__TARGET"
       set +e
-        "$scriptFile" "$arg1" "$arg2" "$arg3" >"$to" 2>"$logFile"  3>"$ZEDO__ROOT_ERR"
+        "$scriptFile" "$arg1" "$arg2" "$arg3" >"$to" 2>"$logFile" 3>"$ZEDO__ROOT_ERR"
         ec=$?
       set -e
       if [ -z "$exeBit" ]; then chmod u-x "$scriptFile"; fi

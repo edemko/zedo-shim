@@ -1,2 +1,3 @@
 cases/*/actual.out
+cases/*/actual.log
 cases/*/**/.zedo/log
