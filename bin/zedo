@@ -386,6 +386,7 @@ case "$action" in
       esac
     done
   ;;
+
   phony)
     if [ -z "$ZEDO__PARENT" ]; then die 'use zedo phony only as part of a do-script'; fi
     mkdir -p "$(dirname "$ZEDO__ROOT/.zedo/when-done/$ZEDO__PARENT")"
@@ -401,6 +402,7 @@ case "$action" in
     # TODO just warn if there are other arguments
     exit
   ;;
+
   trace)
     while [ $# -ne 0 ]; do
       echo "Request is: '$1'"

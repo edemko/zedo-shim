@@ -5,6 +5,25 @@ However, the system I have in mind---`zedo`, a variant of djb's `redo`---isn't w
 This shim should make it easier for users and contributors to use my `zedo`-based build systems
     without having to build and install _yet another thing_ first.
 
+To include this shim in a project, use:
+
+```
+cd <repository>
+git submodule add https://github.com/Zankoku-Okuno/zedo-shim.git
+cp -r zedo-shim/default-project .zedo
+git add .zedo
+```
+
+then document the steps a user needs to run the build system:
+
+```
+git clone <repository>
+cd <repository>
+git submodule update --init zedo-shim
+export PATH+=":$PWD/zedo-shim/bin"
+zedo <all>
+```
+
 The (so far untested) idea is to include this repository as a git submodule.
 Then, the user/contributor need only update the submodule and put `zedo-shim/bin` on their path.
 Then the uild system will work (though sub-optimally).
