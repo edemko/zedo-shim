@@ -117,13 +117,12 @@ if [ -z "$ZEDO__TARGET" ]; then
   cd "$ZEDO__ROOT"
 
   # set up internal data structures for the run
-  if [ -w /dev/fd/3 ]; then
-    ZEDO__ROOT_ERR="$(realpath /dev/fd/3)"
-  # FIXME it seems janky things happen if /dev/fd/2 is redirected to a file, but I'm not sure why
-  # so, for testing purposes, I've allowed fd 3 to be used in place of a terminal (which somehow works‽)
-  else
-    ZEDO__ROOT_ERR="$(realpath /dev/fd/2)"
-  fi
+  # FIXME it's super-janky to test if stderr is redirected away from a terminal (or whatever `pts` holds)
+  # it means in order to redirect zedo's errors, you also need to redirect stderr
+  case "$(realpath /dev/fd/2)" in
+    /dev/pts/*) ZEDO__ROOT_ERR="$(realpath /dev/fd/2)" ;;
+    *) ZEDO__ROOT_ERR="$(realpath /dev/fd/3)" ;;
+  esac
   export ZEDO__ROOT_ERR
 
   ZEDO__CALLSTACK="$ZEDO__ROOT/.zedo/log/callstack.zedolog"
