@@ -130,7 +130,8 @@ if [ -z "$ZEDO__TARGET" ]; then
   truncate -s0 "$ZEDO__CALLSTACK"
   export ZEDO__CALLSTACK
 
-  rm -rf "$ZEDO__ROOT/.zedo/when-done"
+  rm -rf "$ZEDO__ROOT/.zedo/.done"
+  rm -rf "$ZEDO__ROOT/.zedo/.when-done"
 
   # if dirs are set, use them
   # otherwise try loading them from the config file
@@ -292,6 +293,8 @@ __zedoSource() {
     ln "$from" "$to"
     # TODO I wish I could write-protect just the link inside BUILD instead of the SRC copy as well
   fi
+  mkdir -p "$(dirname "$ZEDO__ROOT/.zedo/.done/$targetPath")"
+  truncate -s0 "$ZEDO__ROOT/.zedo/.done/$targetPath"
   return
 }
 __zedoBuild() {
@@ -329,16 +332,18 @@ __zedoBuild() {
         ec=$?
       set -e
       if [ -z "$exeBit" ]; then chmod u-x "$scriptFile"; fi
-      if [ -f "$ZEDO__ROOT/.zedo/when-done/$ZEDO__TARGET" ]; then
+      if [ -f "$ZEDO__ROOT/.zedo/.when-done/$ZEDO__TARGET" ]; then
         while IFS= read -r line; do
           __zedoCleanup >>"$logFile" 2>&1 "$line"
-        done <"$ZEDO__ROOT/.zedo/when-done/$ZEDO__TARGET"
+        done <"$ZEDO__ROOT/.zedo/.when-done/$ZEDO__TARGET"
       fi
       cd "$owd"
       if [ $ec != 0 ]; then
         echo >&2 "do-script failed: '$scriptFile'"
         exit $ec
       else
+        mkdir -p "$(dirname "$ZEDO__ROOT/.zedo/.done/$targetPath")"
+        truncate -s0 "$ZEDO__ROOT/.zedo/.done/$targetPath"
         return 0
       fi
     fi
@@ -377,6 +382,7 @@ case "$action" in
     while [ $# -ne 0 ]; do
       __findScript_init "$1"
       shift
+      if [ -f "$ZEDO__ROOT/.zedo/.done/$targetPath" ]; then continue; fi
       case "$targetType" in
         src) __zedoSource ;;
         build) __zedoBuild ;;
@@ -388,8 +394,8 @@ case "$action" in
 
   phony)
     if [ -z "$ZEDO__PARENT" ]; then die 'use zedo phony only as part of a do-script'; fi
-    mkdir -p "$(dirname "$ZEDO__ROOT/.zedo/when-done/$ZEDO__PARENT")"
-    echo 'phony' >>"$ZEDO__ROOT/.zedo/when-done/$ZEDO__PARENT"
+    mkdir -p "$(dirname "$ZEDO__ROOT/.zedo/.when-done/$ZEDO__PARENT")"
+    echo 'phony' >>"$ZEDO__ROOT/.zedo/.when-done/$ZEDO__PARENT"
     # TODO warn if there other arguments
     exit
   ;;
