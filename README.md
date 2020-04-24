@@ -44,3 +44,14 @@ Since I don't want to do much of that in shell, I should be motivated to keep th
 Further, relative performance metrics should give me a better idea of how much overhead the "smart" features of true `zedo` introduces.
 Admittedly, there'll be some overhead even here, what with build sub-scripts always being invoked indirectly through `zedo`.
 The idea though is that incremental builds will then save a lot of time.
+
+## TODO
+
+  - [ ] zedo dist
+  - [ ] more testing
+    - [ ] zedo phony
+    - [ ] zedo root log works as expected
+    - [ ] cleanup after the invocation tree
+    - [ ] cleanup after a zedo invocation
+    - [ ] zedo dist
+  - [ ] zedo service

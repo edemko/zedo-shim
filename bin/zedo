@@ -6,6 +6,16 @@ die() {
   exit 1
 }
 
+__cleanup() {
+  set +e
+  exec 2>/dev/null # TODO is there any better way to do this?
+  if [ -z "$ZEDO__PARENT" ]; then
+    kill "$rootErrCatPid"
+    kill "$rootErrKeepalivePid"
+    rm "$ZEDO__ROOT_ERR"
+  fi
+}
+trap '__cleanup' EXIT TERM INT # TODO any other signals?
 
 verbosity=1
 while [ $# -ne 0 ]; do
@@ -117,13 +127,15 @@ if [ -z "$ZEDO__TARGET" ]; then
   cd "$ZEDO__ROOT"
 
   # set up internal data structures for the run
-  # FIXME it's super-janky to test if stderr is redirected away from a terminal (or whatever `pts` holds)
-  # it means in order to redirect zedo's errors, you also need to redirect stderr
-  case "$(realpath /dev/fd/2)" in
-    /dev/pts/*) ZEDO__ROOT_ERR="$(realpath /dev/fd/2)" ;;
-    *) ZEDO__ROOT_ERR="$(realpath /dev/fd/3)" ;;
-  esac
+  ZEDO__ROOT_ERR="$ZEDO__ROOT/.zedo/rooterr.fifo"
+  rm -f "$ZEDO__ROOT_ERR"
+  mkfifo "$ZEDO__ROOT_ERR"
+  tail -f >"$ZEDO__ROOT_ERR" & # keep at least one write filehandle open on the fifo
+  rootErrKeepalivePid=$!
+  cat "$ZEDO__ROOT_ERR" >&2 &
+  rootErrCatPid=$!
   export ZEDO__ROOT_ERR
+  # NOTE zedo should only use $ZEDO__ROOT_ERR to log to top, only do-scripts can use fd 3
 
   ZEDO__CALLSTACK="$ZEDO__ROOT/.zedo/log/callstack.zedolog"
   mkdir -p "$(dirname "$ZEDO__CALLSTACK")"

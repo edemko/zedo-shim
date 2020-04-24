@@ -14,15 +14,12 @@ for f in "$here"/cases/*; do
         echo >&2 "$f/run.sh is not executable"
         result=FAIL
     else
-        set +e; ./run.sh >actual.out 2>&1 3>actual.log; ec=$?; set -e
+        set +e; ./run.sh >actual.out 2>&1; ec=$?; set -e
         if [ $ec -ne 0 ]; then
             echo >&2 "test $(basename "$f"): run script existed with non-zero exit code ($ec)"
             result=FAIL
         elif ! diff -q {actual,expected}.out 2>/dev/null; then
             echo >&2 "test $(basename "$f"): actual output differs from expected"
-            result=FAIL
-        elif ! diff -q {actual,expected}.log; then
-            echo >&2 "test $(basename "$f"): actual root log differs from expected"
             result=FAIL
         fi
     fi
