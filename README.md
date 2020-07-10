@@ -26,8 +26,7 @@ zedo <all>
 
 The (so far untested) idea is to include this repository as a git submodule.
 Then, the user/contributor need only update the submodule and put `zedo-shim/bin` on their path.
-Then the uild system will work (though sub-optimally).
-
+Then the build system will work (though sub-optimally).
 
 ## Random Notes
 
@@ -44,3 +43,30 @@ Since I don't want to do much of that in shell, I should be motivated to keep th
 Further, relative performance metrics should give me a better idea of how much overhead the "smart" features of true `zedo` introduces.
 Admittedly, there'll be some overhead even here, what with build sub-scripts always being invoked indirectly through `zedo`.
 The idea though is that incremental builds will then save a lot of time.
+
+## Writing a Zedo Script
+
+Create an executable file named `<output file>.do` or `default.<extension>.do`.
+Okay, probably it will be a script, so give it a she-bang line at the top.
+
+It is invoked with two or three arguments:
+
+  * `$1`: the target directory relative to the root directory for that file type, _without_ a leading slash
+  * `$2`: basename of the target (without extension for default scripts)
+  * `$3` (for default scripts only): extension of the target file _including_ the leading dot
+  * which means the original target is `/$1/$2$3` and replacing an extension is like `/$1/$2.o`,
+    or remove the leading `/$1` for a relative path.
+
+In addition to the arguments, there are some environmental guaranteed
+  * the current working directory is the directory of the output file
+  * stdout is the output file
+  * stderr is the target-specific log file under `.zedo/log/...`
+  * file descriptor three points to the root error log (usually directly to the terminal)
+  $ `$ZTOP` is set to the top of the build directory (which has copies of dependend-on source files) so that actual filenames for built files can be referenced with absolute paths rather than relative paths.
+
+For many outputs, it is sufficient to simply allow the output of a filter to be written to stdout (and from there to the output file).
+However, some programs (esp. those creating binary files) require a path to the output file; I suggest `/dev/fd/1`.
+
+If the script exits with a non-zero exit code, then it is understood to have failed, and its dependents will not be built.
+
+Also, there's always `zedo --help | less`.
