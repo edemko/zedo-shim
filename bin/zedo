@@ -155,6 +155,8 @@ if [ -z "$ZEDO__TARGET" ]; then
   if [ -z "$BUILD" ]; then
     BUILD="$(__loadConfig BUILD build)"
     export BUILD
+    ZTOP="$ZEDO__ROOT/$BUILD"
+    export ZTOP
   fi
   if [ -z "$DO" ]; then
     DO="$(__loadConfig DO 'do')"
