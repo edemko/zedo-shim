@@ -341,7 +341,10 @@ __zedoBuild() {
       fi
       cd "$owd"
       if [ $ec != 0 ]; then
-        echo >&2 "do-script failed: '$scriptFile'"
+        echo "do-script failed: '$scriptFile $arg1/$arg2$arg3'" | tee "$ZEDO__ROOT_ERR" >&2
+        echo >"$ZEDO__ROOT_ERR" "=================="
+        cat >"$ZEDO__ROOT_ERR" "$logFile"
+        echo >"$ZEDO__ROOT_ERR" "=================="
         exit $ec
       else
         mkdir -p "$(dirname "$ZEDO__ROOT/.zedo/.done/$targetPath")"
