@@ -130,7 +130,7 @@ if [ -z "$ZEDO__TARGET" ]; then
   ZEDO__ROOT_ERR="$ZEDO__ROOT/.zedo/rooterr.fifo"
   rm -f "$ZEDO__ROOT_ERR"
   mkfifo "$ZEDO__ROOT_ERR"
-  tail -f >"$ZEDO__ROOT_ERR" & # keep at least one write filehandle open on the fifo
+  tail -f </dev/null >"$ZEDO__ROOT_ERR" & # keep at least one write filehandle open on the fifo
   rootErrKeepalivePid=$!
   cat "$ZEDO__ROOT_ERR" >&2 &
   rootErrCatPid=$!
