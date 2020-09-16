@@ -1,0 +1,37 @@
+call `zedo service <EXE> <ARGS...>`
+capture stdout into $pipeBase
+# at this point, $pipeBase.{in,out} will have been created
+cat "myInput" >$pipeBase.in &
+cat $pipeBase.out
+
+
+
+So, `zedo service` must:
+    hash = hash the args, concat and hash again
+    pidFile = $hash.pid
+    if pidFile does not exist:
+        welcomeFifo = mkfifo $hash.welcome
+        $EXE $@ <$welcomeFifo & # spawn the requested service in the background
+        echo $! to $pidFile
+        tail -f >$welcomeFifo &
+    else
+        welcomeFifo = $hash.welcome
+    fifoBase = make up a filename
+    echo $fifoBase > $welcomeFifo
+    echo $fifoBase
+
+The EXE must be a welcome process.
+It should begin reading lines from stdin; for each one:
+    fifoBase = line
+    main($fifoBase.in) > $fifoBase.out
+Though it could do it in a new thread
+
+
+The welcome process must:
+    open a write-mode fd on the welcomeFifo
+    read each line from the welcome fifo into variable pipeBase
+    
+
+
+when the root invocation tree exists, cleanup all the processes and fifos using the pidFiles
+
