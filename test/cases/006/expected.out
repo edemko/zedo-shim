@@ -1,0 +1,19 @@
+Oak needs Delia
+Delia needs Kiddo
+Kiddo done
+Delia done
+Oak needs Rival
+do-script failed: '/home/okuno/Documents/programming/zedo-shim/test/cases/006/project/do/default.out.do ./gramps.out'
+[START LOGFILE] gramps.out.stderr
+do-script failed: '/home/okuno/Documents/programming/zedo-shim/test/cases/006/project/do/default.out.do ./rival.out'
+[START LOGFILE] rival.out.stderr
+source file does not exist: '/home/okuno/Documents/programming/zedo-shim/test/cases/006/project/./004'
+=== STACK TRACE ===
+/home/okuno/Documents/programming/zedo-shim/test/cases/006/project/.zedo/log/rival.out.stderr
+/home/okuno/Documents/programming/zedo-shim/test/cases/006/project/.zedo/log/gramps.out.stderr
+=== GRAMPS STDERR ===
+do-script failed: '/home/okuno/Documents/programming/zedo-shim/test/cases/006/project/do/default.out.do ./rival.out'
+=== MAMA STDERR ===
+=== KIDDO STDERR ===
+=== RIVAL STDERR ===
+source file does not exist: '/home/okuno/Documents/programming/zedo-shim/test/cases/006/project/./004'
