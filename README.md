@@ -73,7 +73,7 @@ In addition to the arguments, there are some environmental guaranteed
   * stdout is the output file
   * stderr is the target-specific log file under `.zedo/log/...`
   * file descriptor three points to the root error log (usually directly to the terminal)
-  $ `$ZTOP` is set to the top of the build directory (which has copies of dependend-on source files) so that actual filenames for built files can be referenced with absolute paths rather than relative paths.
+  * `$ZTOP` is set to the top of the build directory (which has copies of depended-on source files) so that actual filenames for built files can be referenced with absolute paths rather than relative paths.
 
 For many outputs, it is sufficient to simply allow the output of a filter to be written to stdout (and from there to the output file).
 However, some programs (esp. those creating binary files) require a path to the output file; I suggest `/dev/fd/1`.
