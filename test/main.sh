@@ -16,7 +16,7 @@ for f in "$here"/cases/*; do
     else
         set +e; ./run.sh >actual.out 2>&1; ec=$?; set -e
         if [ $ec -ne 0 ]; then
-            echo >&2 "test $(basename "$f"): run script existed with non-zero exit code ($ec)"
+            echo >&2 "test $(basename "$f"): run script exited with non-zero exit code ($ec)"
             result=FAIL
         elif ! diff -q {actual,expected}.out 2>/dev/null; then
             echo >&2 "test $(basename "$f"): actual output differs from expected"
