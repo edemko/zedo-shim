@@ -27,7 +27,7 @@ while [ $# -ne 0 ]; do
     -q|--quiet) verbosity=$((verbosity - 1)) ;;
     -v|--verbose) verbosity=$((verbosity + 1)) ;;
     -V|--version)
-      echo '0.0.0-a'
+      echo 'zedo-shim 0.0.0-a'
       exit
     ;;
 
@@ -141,7 +141,7 @@ if [ -z "$ZEDO__TARGET" ]; then
   mkdir -p "$__logDir"
   ZEDO__CALLSTACK="$__logDir/callstack.zedolog"
   ZEDO__STACKTRACE="$__logDir/stacktrace.zedolog"
-  truncate -s0 "$ZEDO__CALLSTACK"
+  : >"$ZEDO__CALLSTACK"
   [ -e "$ZEDO__STACKTRACE" ] && rm -f "$ZEDO__STACKTRACE"
   export ZEDO__CALLSTACK
   export ZEDO__STACKTRACE
@@ -312,7 +312,7 @@ __zedoSource() {
     # TODO I wish I could write-protect just the link inside BUILD instead of the SRC copy as well
   fi
   mkdir -p "$(dirname "$ZEDO__ROOT/.zedo/.done/$targetPath")"
-  truncate -s0 "$ZEDO__ROOT/.zedo/.done/$targetPath"
+  : >"$ZEDO__ROOT/.zedo/.done/$targetPath"
   return
 }
 __zedoBuild() {
@@ -339,7 +339,7 @@ __zedoBuild() {
       # all parameters set, we are go for execute
       export ZEDO__TARGET="$targetPath"
       mkdir -p "$(dirname "$to")" "$(dirname "$logFile")"
-      truncate -s0 "$to"
+      : >"$to"
       if [ -x "$scriptFile" ]; then exeBit=1; else chmod u+x "$scriptFile"; fi
       local owd="$PWD"
       cd "$(dirname "$to")"
@@ -369,7 +369,7 @@ __zedoBuild() {
         exit $ec
       else
         mkdir -p "$(dirname "$ZEDO__ROOT/.zedo/.done/$targetPath")"
-        truncate -s0 "$ZEDO__ROOT/.zedo/.done/$targetPath"
+        : >"$ZEDO__ROOT/.zedo/.done/$targetPath"
         return 0
       fi
     fi
@@ -459,11 +459,19 @@ case "$action" in
     echo "For more information, see: TODO"
     echo ""
     echo "COMMANDS"
-    echo "  zedo <no command> REQUESTS...          as the always command"
-    echo "  zedo always REQUESTS...                build the requested files (see BUILDING below)"
-    echo "  zedo if-{change,create} REQUESTS...    as the always command"
-    echo "                                           a true zedo would conditionally run the script"
-    echo "  zedo help                              print this message and exit"
+    echo "  zedo <no command> REQUESTS...        as the always command"
+    echo "  zedo always REQUESTS...              build the requested files (see BUILDING below)"
+    echo "  zedo if{change,create} REQUESTS...   as the always command"
+    echo "                                         a true zedo would conditionally run the script"
+    echo "  zedo if-{change,create} REQUESTS...  synonyms for ifchange and ifcreate"
+    echo "  zedo phony                           called from a do-script, marks the current target as 'phony'"
+    echo "                                         that is, it produces no output file and so is never up-to-date"
+    echo "  zedo volatile                        called from a do-script, ensures the current target is built again next time"
+    echo "  zedo trace REQUESTS...               for each request, print information about the request:"
+    echo "                                         * what kind of target it is (src/build/default/meta)"
+    echo "                                         * which do-script paths are relevant, in search order"
+    echo "                                         * where the source file would be located"
+    echo "  zedo help                            print this message and exit"
     echo ""
     echo "OPTIONS"
     echo "  -h,--help       as the help command above"
