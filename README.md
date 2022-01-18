@@ -9,7 +9,7 @@ To include this shim in a project, use:
 
 ```
 cd <repository>
-git submodule add https://github.com/Zankoku-Okuno/zedo-shim.git
+git submodule add https://github.com/edemko/zedo-shim.git
 cp -r zedo-shim/default-project .zedo
 git add .zedo
 ```
